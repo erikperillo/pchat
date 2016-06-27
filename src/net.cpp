@@ -143,7 +143,17 @@ NetMessage NetReceiver::recv(int flags)
 	std::string str;
 
 	for(i=0; i<this->buf_len; i++)
-		str.push_back(this->buf[i]);
+		if(this->buf[i] == NET_SEP)
+		{
+			memcpy(this->buf, this->buf+i+1, this->buf_len-i-1);
+			this->buf_len -= i + 1;
+			msg = NetMessage(this->last_src, this->last_dst, str);
+			msg.setErrCode(SUCCESS);
+			return msg;	
+		}
+		else
+			str.push_back(this->buf[i]);
+
 	this->buf_len = 0;
 
 	while(true)
@@ -152,8 +162,8 @@ NetMessage NetReceiver::recv(int flags)
 		if(ret <= 0)
 			return NetMessage(NetAddr(src), NetAddr(dst), std::string());	
 
-		//if(buf[ret-1] == '\0')
-		//	ret--;
+		this->last_src = NetAddr(src);
+		this->last_dst = NetAddr(dst);
 
 		for(i=0; i<ret; i++)
 			if(recv_buf[i] == NET_SEP)

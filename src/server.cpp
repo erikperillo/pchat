@@ -11,35 +11,44 @@
 
 using namespace std;
 
-#define ONLINE_GROUP " online"
-#define OFFLINE_GROUP "offline"
+//server address
 #define SERVER_NAME "127.0.0.1"
 #define SERVER_PORT 13254
-#define MSG_LOOP_TIME_MS 1618
-#define MAX_NUM_THREADS 4
+//maximum number of characters to be displayed as content on server log
+#define MAX_CONT_SIZE 256
+//default groups names
+#define ONLINE_GROUP " online"
+#define OFFLINE_GROUP "offline"
+//period of message handler thread
+#define MSG_LOOP_TIME_MS 618
+//maximum number of threads that interact with user
+#define MAX_NUM_THREADS 32
 
+//indicates which threads are free to be used
+bool free_thread[MAX_NUM_THREADS];
+//chat object, contains all chat's state
+Chat chat;
 //mutexes
 std::mutex free_thread_mtx;
 std::mutex chat_mtx;
-//indicates which threads are free to be used
-bool free_thread[MAX_NUM_THREADS];
-//chat
-Chat chat;
 
+/*
+Displays error message and exits.
+*/
 void error(const std::string& msg, int ret=1)
 {
 	perror(msg.c_str());
 	exit(ret);
 }
 
-vector<string> preProcess(const std::string& raw_msg)
-{
-	return split(raw_msg, " ");
-}
-
+/*
+Handles messages to be sent by periodically checking messages list.
+Notifies users when message gets to destination.
+*/
 void messagesLoop()
 {
 	vector<size_t> messages_ids;
+	map<size_t, Message> sent_messages;
 	Message msg;
 	Group online;
 	string src;
@@ -52,60 +61,78 @@ void messagesLoop()
 	{
 		chat_mtx.lock();	
 		messages_ids = chat.getMessagesIds();		
+		online = chat.getGroup(ONLINE_GROUP);
+		//iterating over messages to be sent
 		for(auto const& id: messages_ids)
 		{
-			online = chat.getGroup(ONLINE_GROUP);
 			msg = chat.getMessage(id);
 			src = msg.getSrcUserName();
 			dst = msg.getDstUserName();
 			bool is_file = msg.hasTitle();
-			if(online.has(src) && online.has(dst))
+
+			if(online.has(dst))
 			{
 				sock = chat.getSocketFromUser(dst);	
 				if(is_file)
 					net_msg = hostToNetFileIncoming(msg);
 				else
 					net_msg = hostToNetMsgIncoming(msg);
-				//cout << "sock1 = " << sock << endl;
 				//sending message to destiny user
 				if(send(sock, net_msg) < 0)
-				{
-					cout << "error sending message from " + src + " to " + dst
-						<< ":" << endl;
-					perror("");
-				}
+					perror(("content from " + src + " to " + dst).c_str());
 				else
 				{
-					msg_id = hash<Message>{}(msg);
-					chat.delMessage(msg_id);
-					sock = chat.getSocketFromUser(src);	
-					//cout << "sock2 = " << sock << endl;
-					if(is_file)
-						net_msg = hostToNetFileSent(msg_id);
-					else
-						net_msg = hostToNetMsgSent(msg_id);
-					//notificating source user
-					if(send(sock, net_msg) < 0)
-					{
-						cout << "error sending " << (is_file?"file":"message")
-							<< " from " << src << " to " << dst << ":" << endl;
-						perror("");
-					}
+					sent_messages[id] = msg;
+					chat.delMessage(id);
 				}
 			}
 		}
+		//notificating source users about messages sent
+		auto it = sent_messages.begin();
+		while(it != sent_messages.end())
+		{
+			msg_id = (*it).first;
+			msg = (*it).second;
+			src = msg.getSrcUserName();
+			dst = msg.getDstUserName();
+			bool is_file = msg.hasTitle();
+
+			if(online.has(src))
+			{
+				sock = chat.getSocketFromUser(src);	
+				if(is_file)
+					net_msg = hostToNetFileSent(msg_id);
+				else
+					net_msg = hostToNetMsgSent(msg_id);
+				//notificating source user
+				if(send(sock, net_msg) < 0)
+				{
+					perror(("content from " + src + " to " + dst).c_str());
+					it++;
+				}
+				else
+					it = sent_messages.erase(it);
+			}
+			else
+				it++;
+		}
 		chat_mtx.unlock();	
 
+		//waiting some time
 		this_thread::sleep_for(chrono::milliseconds(MSG_LOOP_TIME_MS));
 	}
 }
 
+/*
+Reads user request, takes proper action and sends response.
+*/
 int handle(int socket, const string& str, const User& user)
 {
 	char header;
 	string answer;
 	int ret = 0;
 
+	//verifying type of message
 	header = netToHostHeader(str);
 
 	switch(header)
@@ -133,10 +160,6 @@ int handle(int socket, const string& str, const User& user)
 		case SEND_MSG:
 		{
 			Message msg = netToHostSendMsg(str);		
-			/*cout << "src | dst | content: " 
-				<< msg.getSrcUserName() << " | " 
-				<< msg.getDstUserName() << " | "
-				<< msg.getContent() << endl;*/
 			if(msg.getSrcUserName().empty())
 			{
 				answer = hostToNetMsg(INVALID_REQUEST_ERR);	
@@ -159,7 +182,6 @@ int handle(int socket, const string& str, const User& user)
 			{
 				size_t msg_id;
 				msg_id = hash<Message>{}(msg);
-				//cout << msg_id << endl;
 				answer = hostToNetMsgQueued(msg_id);
 			}
 			break;
@@ -167,10 +189,7 @@ int handle(int socket, const string& str, const User& user)
 		case SEND_FILE:
 		{
 			Message msg = netToHostSendFile(str);		
-			/*cout << "src | dst | content: " 
-				<< msg.getSrcUserName() << " | " 
-				<< msg.getDstUserName() << " | "
-				<< msg.getContent() << endl;*/
+
 			if(msg.getSrcUserName().empty())
 			{
 				answer = hostToNetMsg(INVALID_REQUEST_ERR);	
@@ -193,7 +212,6 @@ int handle(int socket, const string& str, const User& user)
 			{
 				size_t msg_id;
 				msg_id = hash<Message>{}(msg);
-				//cout << msg_id << endl;
 				answer = hostToNetFileQueued(msg_id);
 			}
 			break;
@@ -281,7 +299,6 @@ int handle(int socket, const string& str, const User& user)
 					size_t msg_id;
 					Message msg = Message(user_name, group_name, group_msg_c);
 					msg_id = hash<Message>{}(msg);
-					//cout << msg_id << endl;
 					answer = hostToNetMsgQueued(msg_id);
 				}
 			}
@@ -295,12 +312,16 @@ int handle(int socket, const string& str, const User& user)
 			break;
 	}
 
+	//sending answer to client
 	if(send(socket, answer) < 0)
 		error("send");
 
 	return ret;
 }
 
+/*
+Registers user from new connection by adding it to chat.
+*/
 User registerUser(NetReceiver& receiver)
 {
 	User user;
@@ -334,8 +355,15 @@ User registerUser(NetReceiver& receiver)
 		//user is being used by another host
 		if(user.getAddr().getIp() != src.getIp())
 			return User(hostToNetHeader(USER_EXISTS_ERR), NetAddr());
-		//user is getting online again
 		chat_mtx.lock();
+		Group online = chat.getGroup(ONLINE_GROUP);
+		//user is being used by the same host but it is already online
+		if(online.has(user_name))
+		{
+			chat_mtx.unlock();
+			return User(hostToNetHeader(USER_EXISTS_ERR), NetAddr());
+		}
+		//user is getting online again, updating its information
 		chat.delUser(user_name);
 		user = User(user_name, src);
 		chat.addUser(user, receiver.getSocket());
@@ -346,6 +374,7 @@ User registerUser(NetReceiver& receiver)
 	}
 	else
 	{
+		//user did not exist previously
 		chat_mtx.lock();
 		chat.addUserToGroup(user_name, ONLINE_GROUP);
 		chat_mtx.unlock();
@@ -356,13 +385,14 @@ User registerUser(NetReceiver& receiver)
 
 /*
 The worker thread.
-Interacts with each client, providing necessary services
+Interacts with each client, providing necessary services.
 */
 void userInteraction(int id, int sock)
 {
 	NetAddr src;
 	NetMessage msg;
 	string answer;
+	string cont;
 	User user;
 	NetReceiver receiver;
 	char header;
@@ -372,7 +402,7 @@ void userInteraction(int id, int sock)
 
 	//registering user
 	user = registerUser(receiver);
-	header = netToHostHeader(msg.getContent());
+	header = netToHostHeader(user.getName());
 	if(header == USER_EXISTS_ERR || header == INVALID_REQUEST_ERR)
 		answer = hostToNetMsg(header);
 	else
@@ -394,9 +424,11 @@ void userInteraction(int id, int sock)
 
 			//displaying message
 			src = msg.getSrcAddr();
-			//cout << "[" << id << "]"
-			//	<< "[" << src.getIp() << ":" << src.getPort() << "]"
-			//	<< " " << msg.getContent() << endl;
+			cont = msg.getContent();
+			cout << "[" << id << "]" 
+				<< "[" + src.getIp() << ":" << src.getPort() << "] "
+				<< ((cont.size() <= MAX_CONT_SIZE)?cont:"<big content>") 
+				<< endl;
 
 			//handling request
 			if(handle(sock, msg.getContent(), user) < 0)
@@ -413,7 +445,7 @@ void userInteraction(int id, int sock)
 	cout << "[" << id << "] connection ended." << endl;	
 
 	close(sock);
-	//marking itself as free at the end
+	//marking thread as free in the end
 	free_thread_mtx.lock();
 	free_thread[id] = true;
 	free_thread_mtx.unlock();
@@ -460,9 +492,11 @@ void serverLoop()
 		if(conn_sock < 0)
 			error("accept");
 
+		//looking for a free thread to handle user's requests
 		free_thread_mtx.lock();
 		for(i=0; i<MAX_NUM_THREADS && !free_thread[i]; i++);
 		free_thread_mtx.unlock();
+		//some thread is free, allocating it to user
 		if(i < MAX_NUM_THREADS)
 		{
 			if(threads[i].joinable())
@@ -474,7 +508,15 @@ void serverLoop()
 			free_thread_mtx.lock();
 			free_thread[i] = false;	
 			free_thread_mtx.unlock();
+			//starting user interaction loop
 			threads[i] = std::thread(userInteraction, i, conn_sock);
+		}
+		//server is full, no thread is free
+		else
+		{
+			if(send(conn_sock, hostToNetHeader(SERVER_FULL)) < 0)
+				error("send");
+			close(conn_sock);
 		}
 	}
 

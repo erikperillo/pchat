@@ -63,6 +63,8 @@ class NetReceiver
 {
 	private:
 	int socket;
+	NetAddr last_src;
+	NetAddr last_dst;
 	int buf_len;
 	char buf[MAX_BUF_LEN];
 

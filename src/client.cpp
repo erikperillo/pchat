@@ -10,51 +10,73 @@
 
 using namespace std;
 
-#define SERVER_NAME "127.0.0.1"
-#define SERVER_PORT 7532
+//number of digits to display from message hash
 #define HASH_CUT 6
-#define MAX_BUF 2048
-
+//maximum number of characters for file path
+#define MAX_PATH_SIZE 2048
+//commands available to user
 #define REGISTER_CMD "register" 
 #define EXIT_CMD "exit"
 #define CREATE_GROUP_CMD "createg"
 #define JOIN_GROUP_CMD "joing"
 #define SEND_GROUP_CMD "sendg"
-#define SEND_MSG_CMD "sendmsg"
+#define SEND_MSG_CMD "send"
 #define SEND_FILE_CMD "sendf"
 #define WHO_CMD "who"
 #define HELP_CMD "help"
 
+/*
+Displays error message and exits.
+*/
 void error(const string& msg, int ret=1)
 {
 	perror(msg.c_str());
 	exit(ret);
 }
 
+/*
+Shows some info message with prompt in front of it.
+*/
 void info(const string& msg, const string& prompt="[chat] ")
 {
 	cout << prompt << msg << endl;
 }
 
+/*
+Gets the path of directory where program is running. UNIX SYSTEMS ONLY.
+*/
 string pwd()
 {
-  char path[MAX_BUF];
-  ssize_t size = readlink("/proc/self/exe", path, MAX_BUF);
+  char path[MAX_PATH_SIZE];
+  ssize_t size = readlink("/proc/self/exe", path, MAX_PATH_SIZE);
 
-  return string(path, (size>0)?size:0);
+  return string(path, (size > 0)?size:0);
 }
 
+/*
+Displays a help message containing all possible commands to be used.
+*/
 void displayHelpMessage(const string& prompt="\t")
 {
 	info("commands:");
 	info(string(HELP_CMD) + " -> display this help message", prompt);
 	info(string(SEND_MSG_CMD) + " <user> <msg> -> messages <msg> to <user>", 
 		prompt);
-	info(string(JOIN_GROUP_CMD) + " <group_name> -> joins <group_name>", 
+	info(string(CREATE_GROUP_CMD) + " <group> -> creates <group>", 
 		prompt);
+	info(string(JOIN_GROUP_CMD) + " <group> -> joins <group>", 
+		prompt);
+	info(string(SEND_GROUP_CMD) + " <group> <msg> -> sends <msg> to all"
+		+ " users of <group>", prompt);
+	info(string(SEND_FILE_CMD) + " <user> <file_path> -> sends file in"
+		+ " <file_path> to <user>", prompt);
+	info(string(WHO_CMD) + " -> displays users from chat and status", prompt);
 	info(string(EXIT_CMD) + " -> exits chat", prompt);
 }
 
+/*
+Cuts off spaces from left and right extremes of string.
+*/
 string trim(const string& str)
 {
     size_t first, last;
@@ -67,6 +89,9 @@ string trim(const string& str)
     return str.substr(first, last - first + 1);
 }
 
+/*
+Converts every ASCII character to lower case.
+*/
 string lower(const string& str)
 {
 	string res(str);
@@ -78,6 +103,10 @@ string lower(const string& str)
     return res;
 }
 
+/*
+Gets server response, shows it and takes appropriate action.
+Returns a number less than zero if the program should exit.
+*/
 int handle(const string& answer, const string& prompt="[server] ")
 {
 	char header;
@@ -89,6 +118,10 @@ int handle(const string& answer, const string& prompt="[server] ")
 	{
 		case OK:
 			info("OK", prompt);
+			break;
+		case SERVER_FULL:
+			info("server cannot take this request at the moment", prompt);
+			ret = -1;
 			break;
 		case MSG_QUEUED:
 		{
@@ -133,10 +166,7 @@ int handle(const string& answer, const string& prompt="[server] ")
 			Message file = netToHostFileIncoming(answer);
 			string title = file.getTitle();
 			string base = title.substr(title.find_last_of("/\\") + 1);
-			//cout << "title = " << title << endl;
-			//cout << "base = " << base << endl;
 			string path = pwd() + "/" + base;
-			//cout << "path = " << path << endl;
 			info("file '" + base + "'", 
 				"[received from " + file.getSrcUserName() + "] ");
 			ofstream out;
@@ -198,6 +228,9 @@ int handle(const string& answer, const string& prompt="[server] ")
 	return ret;
 }
 
+/*
+Continuously waits for a message from server and handles it.
+*/
 void observe(int sock, string prompt)
 {
 	NetAddr src;
@@ -217,18 +250,18 @@ void observe(int sock, string prompt)
 
 		//displaying server response
 		src = msg.getSrcAddr();
-		//cout << "[" << src.getIp() << ":" << src.getPort() << "]"
-		//	<< " " << msg.getContent() << endl;
 
 		//handling answer
-		//for(auto const& str: split(msg.getContent(), string(1, NET_SEP)))
-		//	handle(sock, str);
 		handle(msg.getContent());
 
 		cout << prompt << flush;
 	}
 }
 
+/*
+Tries to register with username to chat server.
+Returns a number less than zero if operation was not successful.
+*/
 int registerUser(int sock, const string& name)
 {
 	int ret;
@@ -251,6 +284,10 @@ int registerUser(int sock, const string& name)
 	return handle(msg.getContent());
 }
 
+/*
+Parses input from user and returns appropriate request to be sent to server.
+Returns an empty string if command is not valid.
+*/
 string cmdToNetMsg(const string& cmd, const string& user_name)
 {
 	vector<string> tokens;
@@ -318,6 +355,10 @@ string cmdToNetMsg(const string& cmd, const string& user_name)
 	return str;
 }
 
+/*
+Connects to server, registers user and continuously gets commands from user
+and sends request to server.
+*/
 void client(string& ip, unsigned short port, string& name)
 {
 	NetAddr server(ip, port);	
@@ -339,6 +380,7 @@ void client(string& ip, unsigned short port, string& name)
 	if(sock < 0)
 		error("getSocket");
 
+	//connecting to server
 	if(connect(sock, server) < 0)
 		error("connect");	
 		
@@ -348,21 +390,24 @@ void client(string& ip, unsigned short port, string& name)
 	if(registerUser(sock, name) < 0)
 		return;
 	
+	//starting thread that receives server messages
 	thr = thread(observe, sock, prompt);
 
 	cout << prompt << flush;
+	//main loop
 	while(true)
 	{
 		//getting command from console
 		getline(cin, cmd);
 
-		if(lower(cmd) == HELP_CMD)
+		if(lower(trim(cmd)) == HELP_CMD)
 		{
 			displayHelpMessage();
 			cout << prompt << flush;
 			continue;
 		}
 
+		//parsing command
 		request = cmdToNetMsg(cmd, name);
 		if(request.empty())
 		{
@@ -394,10 +439,11 @@ int main(int argc, char** argv)
 {
 	if(argc < 4)
 	{
-		info("usage: client <ip> <port> <name>");
+		info("usage: client <server_ip> <server_port> <name>");
 		return 0;
 	}
 
+	//getting arguments from command line and starting main loop
 	string ip(argv[1]), port(argv[2]), name(argv[3]);
 	client(ip, (unsigned short)stoi(port), name);
 
