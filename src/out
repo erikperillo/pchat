@@ -1,0 +1,15 @@
+11:52:56.078166 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [S], seq 1573561564, win 43690, options [mss 65495,sackOK,TS val 23908543 ecr 0,nop,wscale 7], length 0
+11:52:56.078178 IP localhost.localdomain.13254 > localhost.localdomain.44862: Flags [S.], seq 2868863981, ack 1573561565, win 43690, options [mss 65495,sackOK,TS val 23908543 ecr 23908543,nop,wscale 7], length 0
+11:52:56.078189 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [.], ack 1, win 342, options [nop,nop,TS val 23908543 ecr 23908543], length 0
+11:52:56.078290 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [P.], seq 1:14, ack 1, win 342, options [nop,nop,TS val 23908543 ecr 23908543], length 13
+11:52:56.078297 IP localhost.localdomain.13254 > localhost.localdomain.44862: Flags [.], ack 14, win 342, options [nop,nop,TS val 23908543 ecr 23908543], length 0
+11:52:56.078699 IP localhost.localdomain.13254 > localhost.localdomain.44862: Flags [P.], seq 1:4, ack 14, win 342, options [nop,nop,TS val 23908543 ecr 23908543], length 3
+11:52:56.078722 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [.], ack 4, win 342, options [nop,nop,TS val 23908543 ecr 23908543], length 0
+11:52:59.135156 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [P.], seq 14:17, ack 4, win 342, options [nop,nop,TS val 23909460 ecr 23908543], length 3
+11:52:59.135249 IP localhost.localdomain.13254 > localhost.localdomain.44862: Flags [P.], seq 4:11, ack 17, win 342, options [nop,nop,TS val 23909460 ecr 23909460], length 7
+11:52:59.135274 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [.], ack 11, win 342, options [nop,nop,TS val 23909460 ecr 23909460], length 0
+11:52:59.135281 IP localhost.localdomain.13254 > localhost.localdomain.44862: Flags [P.], seq 11:21, ack 17, win 342, options [nop,nop,TS val 23909460 ecr 23909460], length 10
+11:52:59.135286 IP localhost.localdomain.44862 > localhost.localdomain.13254: Flags [.], ack 21, win 342, options [nop,nop,TS val 23909460 ecr 23909460], length 0
+11:53:01.620146 IP localhost.localdomain.58573 > localhost.localdomain.57772: Flags [F.], seq 2507810385, ack 1394994210, win 350, options [nop,nop,TS val 23910205 ecr 23866357], length 0
+11:53:01.657920 IP localhost.localdomain.57772 > localhost.localdomain.58573: Flags [.], ack 1, win 350, options [nop,nop,TS val 23910217 ecr 23910205], length 0
+
