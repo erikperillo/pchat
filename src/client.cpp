@@ -23,7 +23,11 @@ using namespace std;
 #define SEND_MSG_CMD "send"
 #define SEND_FILE_CMD "sendf"
 #define WHO_CMD "who"
+#define ACCEPT_FILE_CMD "accept"
 #define HELP_CMD "help"
+
+mutex files_mtx;
+map <string, string> files;
 
 /*
 Displays error message and exits.
@@ -107,10 +111,10 @@ string lower(const string& str)
 Gets server response, shows it and takes appropriate action.
 Returns a number less than zero if the program should exit.
 */
-int handle(const string& answer, const string& prompt="[server] ")
+char handle(const string& answer, const string& prompt="[server] ")
 {
 	char header;
-	int ret = 0;
+	char ret = OK;
 
 	header = netToHostHeader(answer);
 
@@ -121,7 +125,7 @@ int handle(const string& answer, const string& prompt="[server] ")
 			break;
 		case SERVER_FULL:
 			info("server cannot take this request at the moment", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		case MSG_QUEUED:
 		{
@@ -166,16 +170,13 @@ int handle(const string& answer, const string& prompt="[server] ")
 			Message file = netToHostFileIncoming(answer);
 			string title = file.getTitle();
 			string base = title.substr(title.find_last_of("/\\") + 1);
-			string path = pwd() + "/" + base;
 			info("file '" + base + "'", 
 				"[received from " + file.getSrcUserName() + "] ");
-			ofstream out;
-			//out.open(path, ofstream::binary);
-			out.open(base, ofstream::out | ofstream::binary);
-			if(out.is_open())
-				info("file will be saved to '" + path + "'", 
-					"[received from " + file.getSrcUserName() + "] ");
-			out.write(file.getContent().c_str(), file.getContent().size());
+			info("use 'accept " + file.getSrcUserName() + ":" + base + "'"
+				+ " to save file");
+			files_mtx.lock();
+			files[file.getSrcUserName() + ":" + base] = file.getContent();
+			files_mtx.unlock();
 			break;
 		}
 		case USERS_LIST:
@@ -202,23 +203,23 @@ int handle(const string& answer, const string& prompt="[server] ")
 			break;
 		case NO_GROUP_ERR:
 			info("ERROR: group does not exist", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		case INVALID_REQUEST_ERR:
 			info("ERROR: invalid request", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		case NOT_IN_GROUP_ERR:
 			info("ERROR: user does not belong to group", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		case NO_MSG_DST_ERR:
 			info("ERROR: destiny user does not exist", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		case USER_EXISTS_ERR:
 			info("ERROR: cannot register, username already exists", prompt);
-			ret = -1;
+			ret = EXIT;
 			break;
 		default:
 			info("unknown answer", prompt);
@@ -356,6 +357,42 @@ string cmdToNetMsg(const string& cmd, const string& user_name)
 }
 
 /*
+If a command to accept a file is issued, tries to save it.
+*/
+bool acceptFileIfRequested(const string& str)
+{
+	vector<string> tokens = split(str, " ");
+
+	if(tokens.size() == 2 && lower(tokens[0]) == ACCEPT_FILE_CMD)
+	{
+		files_mtx.lock();
+		if(files.find(tokens[1]) == files.end())
+			info("no such file exists!");
+		else
+		{
+			string file = files[tokens[1]];
+			string base = split(tokens[1], ":")[1];
+			string path = pwd() + "/" + base;
+			ofstream out;
+			//out.open(path, ofstream::binary);
+			out.open(base, ofstream::out | ofstream::binary);
+			info("file will be saved to '" + path + "'");
+			if(out.is_open())
+			{
+				out.write(file.c_str(), file.size());
+				info("file saved!");
+			}
+			else
+				info("error saving file!");
+		}
+		files_mtx.unlock();
+		return true;
+	}
+
+	return false;
+}
+
+/*
 Connects to server, registers user and continuously gets commands from user
 and sends request to server.
 */
@@ -387,7 +424,7 @@ void client(string& ip, unsigned short port, string& name)
 	info("connected to " + 
 		server.getIp() + ":" + to_string(server.getPort()));
 
-	if(registerUser(sock, name) < 0)
+	if(registerUser(sock, name) != OK)
 		return;
 	
 	//starting thread that receives server messages
@@ -400,6 +437,11 @@ void client(string& ip, unsigned short port, string& name)
 		//getting command from console
 		getline(cin, cmd);
 
+		if(acceptFileIfRequested(cmd))
+		{
+			cout << prompt << flush;
+			continue;
+		}
 		if(lower(trim(cmd)) == HELP_CMD)
 		{
 			displayHelpMessage();

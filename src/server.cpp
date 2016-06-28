@@ -7,13 +7,9 @@
 #include "protocol.h"
 #include "chat.h"
 #include "chatview.h"
-#include "chatcontroller.h"
 
 using namespace std;
 
-//server address
-#define SERVER_NAME "127.0.0.1"
-#define SERVER_PORT 13254
 //maximum number of characters to be displayed as content on server log
 #define MAX_CONT_SIZE 256
 //default groups names
@@ -455,9 +451,9 @@ void userInteraction(int id, int sock)
 Main server loop.
 Receives incoming connections and dispatches them to service loops.
 */
-void serverLoop()
+void serverLoop(unsigned short port)
 {
-	NetAddr addr(SERVER_NAME, SERVER_PORT);
+	NetAddr addr("localhost", port);
 	NetAddr conn;
 	std::thread threads[MAX_NUM_THREADS];
 	int sock;
@@ -523,9 +519,15 @@ void serverLoop()
 	close(sock);
 }
 
-int main()
+int main(int argc, char** argv)
 {
 	thread msg_thread;
+
+	if(argc < 2)
+	{
+		cout << "usage: server <server_port>" << endl;
+		return 0;
+	}
 
 	//creating first groups
 	chat.addGroup(ONLINE_GROUP);
@@ -535,7 +537,8 @@ int main()
 	msg_thread = thread(messagesLoop);	
 
 	//main server loop
-	serverLoop();
+	string port(argv[1]);
+	serverLoop((unsigned short)stoi(port));
 
 	msg_thread.join();
 
