@@ -9,8 +9,11 @@
 #include <string>
 #include <limits>
 
+//successful exit status
 #define SUCCESS 1
+//maximum size of send/recv buffer
 #define MAX_BUF_LEN 8192
+//separator for net messages
 #define NET_SEP ':'
 
 enum net_err: signed int
@@ -18,9 +21,13 @@ enum net_err: signed int
 	GETHOSTBYNAME_ERR = std::numeric_limits<int>::min()
 };
 
+/*
+High level representation of a network address.
+*/
 class NetAddr
 {
 	private:
+	//used to check if structures were filled correctly
 	int err_code;
 	struct sockaddr_in raw_addr;
 
@@ -37,6 +44,10 @@ class NetAddr
 	struct sockaddr_in getRawAddr() const;
 };
 
+/*
+High level representation of a network message. 
+Contains source address, destination address and content of message.
+*/
 class NetMessage
 {
 	private:
@@ -44,14 +55,11 @@ class NetMessage
 	NetAddr src;
 	NetAddr dst;	
 	std::string content;
-	//void setContent(char* buf, size_t size);
 
 	public:
 	NetMessage();
 	NetMessage(const NetAddr& src, const NetAddr& dst, 
 		const std::string& content);	
-	//NetMessage(const NetAddr& src, const NetAddr& dst, 
-	//	char* buf, size_t buf_size);
 	NetAddr getSrcAddr() const;
 	NetAddr getDstAddr() const;
 	std::string getContent() const;
@@ -59,6 +67,11 @@ class NetMessage
 	void setErrCode(int val);
 };
 
+/*
+High level representation of a TCP messages receiver.
+Used to get bytes stream from TCP connection and organize them into a 
+'packet', a message understood by application.
+*/
 class NetReceiver
 {
 	private:
@@ -75,6 +88,7 @@ class NetReceiver
 	int getSocket();
 };
 
+//abstracted network routines
 int getSocket(int type, bool reuse=true, int family=PF_INET, int flags=0);
 int bind(int socket, const NetAddr& addr);
 int attend(int socket, int max_pending=5);
@@ -88,8 +102,7 @@ int sendTo(int socket, const NetMessage& msg, int flags=0);
 int send(int socket, const std::string& msg, int flags=0);
 int send(int socket, const NetMessage& msg, int flags=0);
 int setBlocking(int socket, bool blocking);
-
-NetMessage recvFrom(int socket, int flags=0);
-NetMessage recv(int socket, int flags=0);
+std::string recvFrom(int socket, int flags=0);
+std::string recv(int socket, int flags=0);
 
 #endif

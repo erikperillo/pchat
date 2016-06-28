@@ -8,6 +8,9 @@
 #include <unordered_set>
 #include "message.h"
 
+/*
+Hash calculation for Message objects.
+*/
 namespace std
 {
 	template<> struct hash<Message>

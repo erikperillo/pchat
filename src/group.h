@@ -4,6 +4,9 @@
 #include <string>
 #include <vector>
 
+/*
+Class for holding information about groups of users.
+*/
 class Group
 {
 	private:

@@ -9,6 +9,9 @@
 #include "hash.h"
 #include "elementnotfound.h"
 
+/*
+Class for storing entire chat state.
+*/
 class Chat
 {
 	private:
@@ -24,7 +27,6 @@ class Chat
 	bool hasGroup(const std::string& group_name);
 	Group getGroup(const std::string& group_name) const throw(ElementNotFound);
 	std::vector<std::string> getGroupsNames() const;
-
 	//users methods
 	bool addUser(const User& user, int socket=0);
 	bool delUser(const std::string& user_name);
@@ -36,7 +38,6 @@ class Chat
 	bool delUserFromGroup(const std::string& user_name, 
 		const std::string& group_name);
 	int getSocketFromUser(const std::string& user_name);
-
 	//messages methods
 	bool addMessage(const Message& msg);
 	bool delMessage(const std::size_t& msg_id);

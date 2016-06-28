@@ -5,6 +5,9 @@
 #include <iostream>
 #include <string>
 
+/*
+Class for displaying Chat objects information.
+*/
 class ChatView
 {
 	private:

@@ -4,6 +4,9 @@
 #include <string>
 #include "net.h"
 
+/*
+Class for representing a chat user.
+*/
 class User
 {
 	private:

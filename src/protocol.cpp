@@ -1,24 +1,5 @@
 #include "protocol.h"
 
-/*ProtocolFormatError::ProtocolFormatError(const std::string& msg): msg(msg)
-{;}
-
-std::string ProtocolFormatError::getMessage() const
-{
-	return this->msg;
-}*/
-/*
-std::string lower(const std::string& str)
-{
-	std::string res(str);
-
-	for(unsigned i=0; i<res.size(); i++)
-		if(res[i] >= 'A' && res[i] <= 'Z')
-			res[i] = res[i] - ('Z' - 'z');
-
-      return res;
-}*/
-
 std::string sanitize(const std::string& str)
 {
 	std::string sane_str;
@@ -287,6 +268,7 @@ std::pair<std::string, std::string> netToHostSendGroup(const std::string& msg)
 	return std::pair<std::string, std::string>(args[0], args[1]);
 }
 
+//opens a file and puts its contents into string
 std::string fileToStr(const std::string& file_path)
 {
 	std::ifstream file(file_path);

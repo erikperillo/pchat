@@ -3,6 +3,9 @@
 
 #include <string>
 
+/*
+Class for representing a chat message between users.
+*/
 class Message
 {
 	private:
