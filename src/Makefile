@@ -4,7 +4,7 @@ OBJSDIR = .
 CC = g++
 CCFLAGS = -std=c++14 -Wall -lpthread
 
-all: $(OBJS)
+all: client server
 
 %.o: %.cpp $(DEPS)
 	$(CC) -c -o $(OBJSDIR)/$@ $< $(CCFLAGS)
