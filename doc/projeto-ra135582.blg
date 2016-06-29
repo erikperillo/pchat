@@ -1,0 +1,5 @@
+[0] Config.pm:327> INFO - This is Biber 2.2
+[0] Config.pm:330> INFO - Logfile is 'projeto-ra135582.blg'
+[54] biber:286> INFO - === Tue Jun 28, 2016, 22:53:24
+[55] Biber.pm:334> INFO - Reading 'projeto-ra135582.bcf'
+[188] Utils.pm:147> WARN - No data sources defined!

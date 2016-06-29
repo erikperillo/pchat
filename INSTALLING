@@ -1,0 +1,6 @@
+Requisites: a good C++14 compiler and pthread.
+
+Installing:
+1. go to the directory src
+2. use ./make
+3. enjoy :)
